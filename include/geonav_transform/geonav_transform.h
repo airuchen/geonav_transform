@@ -85,12 +85,18 @@ class GeonavTransform
     //! @brief Callback for the geo nav odom data
     //! @param[in] msg The odometry message to process
     //!
-    void navOdomCallback(const nav_msgs::OdometryConstPtr& msg);
+    void navOdomCallback(const sensor_msgs::NavSatFixConstPtr& msg);
 
     //! @brief Callback for odom in geo frame
     //! @param[in] msg The odometry message to process
     //!
     void geoOdomCallback(const nav_msgs::OdometryConstPtr& msg);
+    
+    
+    //! @brief Callback for imu
+    //! @param[in] msg The imu message to process
+    //!
+    void imuCallback(const sensor_msgs::ImuConstPtr& msg);
 
     //! @brief Sends transform
     void broadcastTf(void);
@@ -173,6 +179,7 @@ class GeonavTransform
     geometry_msgs::TransformStamped transform_msg_odom2base_;
     nav_msgs::Odometry nav_in_utm_;
     nav_msgs::Odometry nav_in_geo_;
+    sensor_msgs::Imu imu_;
 
     //! @brief UTM zone as determined after transforming GPS message
     //!

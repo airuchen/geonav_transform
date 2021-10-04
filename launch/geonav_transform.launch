@@ -7,7 +7,10 @@
 
   <node pkg="geonav_transform" type="geonav_transform_node" name="geonav_transform_node" clear_params="true" output="screen">
     <!-- Datum as latitude, longitude [decimal deg.], yaw [ENU, degrees] -->
-    <rosparam param="datum">[36.6137, -121.912, 0.0]</rosparam>
+    <param name="odom_frame_id" value="map_navgraph" />
+    <param name="base_link_frame_id" value="base_link_gps" />
+    <param name="broadcast_odom2base_transform" value="true" />
+    <rosparam param="datum">[50.780644, 6.104354, 0.0]</rosparam>
   </node>
 
   <!--

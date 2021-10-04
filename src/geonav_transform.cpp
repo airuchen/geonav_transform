@@ -23,6 +23,7 @@ along with this package.  If not, see <http://www.gnu.org/licenses/>.
 #include "geonav_transform/geonav_transform.h"
 #include "geonav_transform/navsat_conversions.h"
 #include "geonav_transform/geonav_utilities.h"
+#include "sensor_msgs/NavSatFix.h"
 
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 
@@ -74,7 +75,7 @@ void GeonavTransform::run()
   nh_priv.param("broadcast_odom2base_transform", broadcast_odom2base_transform_, true);
   nh_priv.param("zero_altitude", zero_altitude_, false);
   nh_priv.param<std::string>("base_link_frame_id", base_link_frame_id_, "base_link");
-  nh_priv.param<std::string>("odom_frame_id", odom_frame_id_, "odom");
+  nh_priv.param<std::string>("odom_frame_id", odom_frame_id_, "map_navgraph");
   nh_priv.param<std::string>("utm_frame_id", utm_frame_id_, "utm");
 
   // Datum parameter - required
@@ -207,7 +208,7 @@ void GeonavTransform::run()
   
   // Subscriber - Odometry in GPS frame.
   // for converstion from geo. coord. to local nav. coord.
-  ros::Subscriber geo_odom_sub = nh.subscribe("nav_odom", 1,
+  ros::Subscriber geo_odom_sub = nh.subscribe("ublox_gps/fix", 1,
 					  &GeonavTransform::navOdomCallback,
 					  this);
   // Subscriber - Odometry in Nav. frame.
@@ -215,6 +216,8 @@ void GeonavTransform::run()
   ros::Subscriber nav_odom_sub = nh.subscribe("geo_odom", 1,
 					  &GeonavTransform::geoOdomCallback,
 					  this);
+
+  ros::Subscriber imu_sub = nh.subscribe("imu/data", 10, &GeonavTransform::imuCallback, this);
   
   
   // Loop
@@ -231,7 +234,8 @@ void GeonavTransform::run()
     }
     else{
       // send transforms - particularly odom->base (utm->odom is static)
-      broadcastTf();
+      if(broadcast_odom2base_transform_)
+        broadcastTf();
     }
     rate.sleep();
   } // end of Loop
@@ -283,7 +287,7 @@ bool GeonavTransform::setDatum(double lat, double lon, double alt,
   return true;
 } // end setDatum
 
-void GeonavTransform::navOdomCallback(const nav_msgs::OdometryConstPtr& msg)
+void GeonavTransform::navOdomCallback(const sensor_msgs::NavSatFixConstPtr& msg)
 {
   nav_frame_id_ = msg->header.frame_id;
   if (nav_frame_id_.empty())
@@ -294,9 +298,9 @@ void GeonavTransform::navOdomCallback(const nav_msgs::OdometryConstPtr& msg)
   }
   // Make sure the GPS data is usable - can't use NavSatStatus since we
   // are making due with an Odometry message
-  bool good_gps = (!std::isnan(msg->pose.pose.position.x) &&
-		   !std::isnan(msg->pose.pose.position.y) &&
-		   !std::isnan(msg->pose.pose.position.z));
+  bool good_gps = (!std::isnan(msg->latitude) &&
+		   !std::isnan(msg->longitude) &&
+		   !std::isnan(msg->altitude));
   if (!good_gps)
   {
     ROS_WARN_STREAM("Bad GPS!  Won't transfrom");
@@ -307,66 +311,66 @@ void GeonavTransform::navOdomCallback(const nav_msgs::OdometryConstPtr& msg)
   double utmY = 0;
   std::string utm_zone_tmp;
   nav_update_time_ = ros::Time::now();
-  NavsatConversions::LLtoUTM(msg->pose.pose.position.y, 
-			     msg->pose.pose.position.x, 
+  NavsatConversions::LLtoUTM(msg->latitude, 
+			     msg->longitude, 
 			     utmY, utmX, utm_zone_tmp);
   ROS_DEBUG_STREAM_THROTTLE(2.0,"Latest GPS (lat, lon, alt): "
-			    << msg->pose.pose.position.y << " , "
-			    << msg->pose.pose.position.x << " , "
-			    << msg->pose.pose.position.z );
+			    << msg->latitude << " , "
+			    << msg->longitude << " , "
+			    << msg->altitude );
   ROS_DEBUG_STREAM_THROTTLE(2.0,"UTM of latest GPS is (X,Y):" 
 			    << utmX << " , " << utmY);
 
   // For now the 'nav' frame is that same as the 'base_link' frame
   transform_utm2nav_.setOrigin(tf2::Vector3(utmX, utmY, 
-					  msg->pose.pose.position.z));
-  transform_utm2nav_.setRotation(tf2::Quaternion(msg->pose.pose.orientation.x,
-						 msg->pose.pose.orientation.y,
-						 msg->pose.pose.orientation.z,
-						 msg->pose.pose.orientation.w));
+					  msg->altitude));
+  transform_utm2nav_.setRotation(tf2::Quaternion(imu_.orientation.x,
+						 imu_.orientation.y,
+						 imu_.orientation.z,
+						 imu_.orientation.w));
   transform_utm2nav_inverse_=transform_utm2nav_.inverse();
 
   // Publish Nav/Base Odometry in UTM frame - note frames are set in ::run()
-  nav_in_utm_.header.stamp = nav_update_time_;
-  nav_in_utm_.header.seq++;
+  // nav_in_utm_.header.stamp = nav_update_time_;
+  // nav_in_utm_.header.seq++;
   // Create position information using transform.
   // Convert from transform to pose message
-  //tf2::toMsg(transform_utm2nav_, nav_in_utm_.pose.pose);
-  tf2::Vector3 tmp;
-  tmp = transform_utm2nav_.getOrigin();
-  nav_in_utm_.pose.pose.position.x = tmp[0];
-  nav_in_utm_.pose.pose.position.y = tmp[1];
-  nav_in_utm_.pose.pose.position.z = tmp[2];
+  // tf2::toMsg(transform_utm2nav_, nav_in_utm_.pose.pose);
+  // tf2::Vector3 tmp;
+  // tmp = transform_utm2nav_.getOrigin();
+  // nav_in_utm_.pose.pose.position.x = tmp[0];
+  // nav_in_utm_.pose.pose.position.y = tmp[1];
+  // nav_in_utm_.pose.pose.position.z = tmp[2];
 
-  nav_in_utm_.pose.pose.position.z = (zero_altitude_ ? 0.0 : nav_in_utm_.pose.pose.position.z);
+  // nav_in_utm_.pose.pose.position.z = (zero_altitude_ ? 0.0 : nav_in_utm_.pose.pose.position.z);
   // Create orientation information directy from incoming orientation
-  nav_in_utm_.pose.pose.orientation = msg->pose.pose.orientation;
-  nav_in_utm_.pose.covariance = msg->pose.covariance;
+  // nav_in_utm_.pose.pose.orientation = msg->pose.pose.orientation;
+  // nav_in_utm_.pose.covariance = msg->pose.covariance;
   // For twist - ignore the rotation since both are in the base_link/nav frame
-  nav_in_utm_.twist.twist.linear = msg->twist.twist.linear;
-  nav_in_utm_.twist.twist.angular = msg->twist.twist.angular;
-  nav_in_utm_.twist.covariance = msg->twist.covariance;
+  // nav_in_utm_.twist.twist.linear = msg->twist.twist.linear;
+  // nav_in_utm_.twist.twist.angular = msg->twist.twist.angular;
+  // nav_in_utm_.twist.covariance = msg->twist.covariance;
   // Publish
-  utm_pub_.publish(nav_in_utm_);
+  // utm_pub_.publish(nav_in_utm_);
 
   // Calculate Nav in odom frame
   // Note the 'base' and 'nav' frames are the same for now
   // odom2base = odom2nav = odom2utm * utm2nav
   transform_odom2base_.mult(transform_utm2odom_inverse_,transform_utm2nav_);
 
-  ROS_DEBUG_STREAM_THROTTLE(2.0,"utm2nav X:" 
-			    << transform_utm2nav_.getOrigin()[0] 
-			    << "Y:" << transform_utm2nav_.getOrigin()[1] );
-  ROS_DEBUG_STREAM_THROTTLE(2.0,"utm2odom X:" 
-			    << transform_utm2odom_.getOrigin()[0] 
-			    << "Y:" << transform_utm2odom_.getOrigin()[1] );
-  ROS_DEBUG_STREAM_THROTTLE(2.0,"utm2odom_inverse X:" 
-			    << transform_utm2odom_inverse_.getOrigin()[0] 
-			    << "Y:" 
-			    << transform_utm2odom_inverse_.getOrigin()[1] );
-  ROS_DEBUG_STREAM_THROTTLE(2.0,"odom2base X:" 
-			    << transform_odom2base_.getOrigin()[0] 
-			    << "Y:" << transform_odom2base_.getOrigin()[1] );
+  // ROS_DEBUG_STREAM_THROTTLE(2.0,"utm2nav X:" 
+	// 		    << transform_utm2nav_.getOrigin()[0] 
+	// 		    << "Y:" << transform_utm2nav_.getOrigin()[1] );
+  // ROS_DEBUG_STREAM_THROTTLE(2.0,"utm2odom X:" 
+	// 		    << transform_utm2odom_.getOrigin()[0] 
+	// 		    << "Y:" << transform_utm2odom_.getOrigin()[1] );
+  // ROS_DEBUG_STREAM_THROTTLE(2.0,"utm2odom_inverse X:" 
+	// 		    << transform_utm2odom_inverse_.getOrigin()[0] 
+	// 		    << "Y:" 
+	// 		    << transform_utm2odom_inverse_.getOrigin()[1] );
+  // ROS_DEBUG_STREAM_THROTTLE(2.0,"odom2base X:" 
+	// 		    << transform_odom2base_.getOrigin()[0] 
+	// 		    << "Y:" << transform_odom2base_.getOrigin()[1] );
 
 
   // Publish Nav odometry in odom frame - note frames are set in ::run()
@@ -376,11 +380,11 @@ void GeonavTransform::navOdomCallback(const nav_msgs::OdometryConstPtr& msg)
   tf2::toMsg(transform_odom2base_, nav_in_odom_.pose.pose);
   nav_in_odom_.pose.pose.position.z = (zero_altitude_ ? 0.0 : nav_in_odom_.pose.pose.position.z);
   // Orientation and twist are uneffected
-  nav_in_odom_.pose.pose.orientation = msg->pose.pose.orientation;
-  nav_in_odom_.pose.covariance = msg->pose.covariance;
-  nav_in_odom_.twist.twist.linear = msg->twist.twist.linear;
-  nav_in_odom_.twist.twist.angular = msg->twist.twist.angular;
-  nav_in_odom_.twist.covariance = msg->twist.covariance;
+  nav_in_odom_.pose.pose.orientation = imu_.orientation;
+  // nav_in_odom_.pose.covariance = imu_.orientation_covariance;
+  // nav_in_odom_.twist.twist.linear = msg->twist.twist.linear;
+  // nav_in_odom_.twist.twist.angular = msg->twist.twist.angular;
+  // nav_in_odom_.twist.covariance = msg->twist.covariance;
   odom_pub_.publish(nav_in_odom_);
 }  // navOdomCallback
 
@@ -407,20 +411,27 @@ void GeonavTransform::geoOdomCallback(const nav_msgs::OdometryConstPtr& msg)
   NavsatConversions::UTMtoLL(tmp[1], tmp[0], utm_zone_,
 			     lat, lon);
     
-  nav_in_geo_.header.stamp = ros::Time::now();
-  nav_in_geo_.pose.pose.position.x = lon;
-  nav_in_geo_.pose.pose.position.y = lat;
-  nav_in_geo_.pose.pose.position.z = 0.0;
+  // nav_in_geo_.header.stamp = ros::Time::now();
+  // nav_in_geo_.pose.pose.position.x = lon;
+  // nav_in_geo_.pose.pose.position.y = lat;
+  // nav_in_geo_.pose.pose.position.z = 0.0;
   // Create orientation information directy from incoming orientation
-  nav_in_geo_.pose.pose.orientation = msg->pose.pose.orientation;
-  nav_in_geo_.pose.covariance = msg->pose.covariance;
+  // nav_in_geo_.pose.pose.orientation = msg->pose.pose.orientation;
+  // nav_in_geo_.pose.covariance = msg->pose.covariance;
   // For twist - ignore the rotation since both are in the base_link/nav frame
-  nav_in_geo_.twist.twist.linear = msg->twist.twist.linear;
-  nav_in_geo_.twist.twist.angular = msg->twist.twist.angular;
-  nav_in_geo_.twist.covariance = msg->twist.covariance;
+  // nav_in_geo_.twist.twist.linear = msg->twist.twist.linear;
+  // nav_in_geo_.twist.twist.angular = msg->twist.twist.angular;
+  // nav_in_geo_.twist.covariance = msg->twist.covariance;
   // Publish
-  geo_pub_.publish(nav_in_geo_);
+  // geo_pub_.publish(nav_in_geo_);
 } // geoOdomCallback
+
+void GeonavTransform::imuCallback(const sensor_msgs::ImuConstPtr& msg) 
+{
+  imu_.header = msg->header;
+  imu_.orientation = msg->orientation;
+  imu_.orientation_covariance = msg->orientation_covariance;
+}
 
 } // namespace GeonavTransform
 
