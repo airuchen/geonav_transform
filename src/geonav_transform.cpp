@@ -309,6 +309,7 @@ void GeonavTransform::navOdomCallback(const sensor_msgs::NavSatFixConstPtr& msg)
 
   double utmX = 0;
   double utmY = 0;
+  double altitude = zero_altitude_ ? 0.0:msg->altitude;
   std::string utm_zone_tmp;
   nav_update_time_ = ros::Time::now();
   NavsatConversions::LLtoUTM(msg->latitude, 
@@ -323,7 +324,7 @@ void GeonavTransform::navOdomCallback(const sensor_msgs::NavSatFixConstPtr& msg)
 
   // For now the 'nav' frame is that same as the 'base_link' frame
   transform_utm2nav_.setOrigin(tf2::Vector3(utmX, utmY, 
-					  msg->altitude));
+					  altitude));
   transform_utm2nav_.setRotation(tf2::Quaternion(imu_.orientation.x,
 						 imu_.orientation.y,
 						 imu_.orientation.z,
