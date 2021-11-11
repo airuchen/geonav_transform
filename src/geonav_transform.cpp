@@ -75,7 +75,7 @@ void GeonavTransform::run()
   nh_priv.param("broadcast_odom2base_transform", broadcast_odom2base_transform_, true);
   nh_priv.param("zero_altitude", zero_altitude_, false);
   nh_priv.param<std::string>("base_link_frame_id", base_link_frame_id_, "base_link");
-  nh_priv.param<std::string>("odom_frame_id", odom_frame_id_, "map_navgraph");
+  nh_priv.param<std::string>("odom_frame_id", odom_frame_id_, "map_gps");
   nh_priv.param<std::string>("utm_frame_id", utm_frame_id_, "utm");
 
   // Datum parameter - required
