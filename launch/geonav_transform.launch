@@ -11,10 +11,10 @@
     <param name="base_link_frame_id" value="base_link_gps" />
     <param name="broadcast_odom2base_transform" value="true" />
     <param name="zero_altitude" value="true" />
-    <!--set to the original lla as map origin-->
+    <!--set to the original lla as melaten map origin-->
     <rosparam param="datum">[50.7871051, 6.046473, 265.117]</rosparam>
-    <!--set to the wrong lla -->
-    <!-- <rosparam param="datum">[51.7804, 6.1043, 149.1]</rosparam> -->
+    <!--set to the simulation lla -->
+    <rosparam param="datum">[50.780578, 6.104401, 156]</rosparam>
   </node>
 
   <node pkg="tf" type="static_transform_publisher" name="map_2_map_gps" args="0 0 0 0 0 0 map map_gps 10" />
