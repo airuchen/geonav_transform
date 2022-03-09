@@ -327,8 +327,8 @@ void GeonavTransform::navOdomCallback(const sensor_msgs::NavSatFixConstPtr& msg)
 					  altitude));
   
   tf2::Quaternion inverse_imu, base_link_ori;
-  inverse_imu.setRPY(0, 0, 0);
-  base_link_ori = inverse_imu * tf2::Quaternion(imu_.orientation.x,imu_.orientation.y,imu_.orientation.z,imu_.orientation.w);
+  inverse_imu.setRPY(3.14159, 0, 0);
+  base_link_ori = tf2::Quaternion(imu_.orientation.x,imu_.orientation.y,imu_.orientation.z,imu_.orientation.w) * inverse_imu ;
   base_link_ori.normalize();
   geometry_msgs::Quaternion base_link_quaternion;
   base_link_quaternion = tf2::toMsg(base_link_ori);
