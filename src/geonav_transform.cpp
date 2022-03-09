@@ -162,7 +162,7 @@ void GeonavTransform::run()
     {
       ROS_WARN("Yaw of the datum is ignored!");
     }
-    datum_yaw = 0.0;
+    datum_yaw = 0;
 
     // Try to resolve tf_prefix
     std::string tf_prefix = "";
@@ -179,7 +179,7 @@ void GeonavTransform::run()
     
     // Convert specified yaw to quaternion 
     // Not currently effective since we ignore the yaw!
-    //quat.setRPY(0.0, 0.0, datum_yaw);
+    quat.setRPY(0.0, 0.0, datum_yaw);
   } // end of datum config.
   
   // Setup transforms and messages 
@@ -325,10 +325,15 @@ void GeonavTransform::navOdomCallback(const sensor_msgs::NavSatFixConstPtr& msg)
   // For now the 'nav' frame is that same as the 'base_link' frame
   transform_utm2nav_.setOrigin(tf2::Vector3(utmX, utmY, 
 					  altitude));
-  transform_utm2nav_.setRotation(tf2::Quaternion(imu_.orientation.x,
-						 imu_.orientation.y,
-						 imu_.orientation.z,
-						 imu_.orientation.w));
+  
+  tf2::Quaternion inverse_imu, base_link_ori;
+  inverse_imu.setRPY(3.14159, 0, 0);
+  base_link_ori = tf2::Quaternion(imu_.orientation.x,imu_.orientation.y,imu_.orientation.z,imu_.orientation.w) * inverse_imu ;
+  base_link_ori.normalize();
+  geometry_msgs::Quaternion base_link_quaternion;
+  base_link_quaternion = tf2::toMsg(base_link_ori);
+
+  transform_utm2nav_.setRotation(base_link_ori);
   transform_utm2nav_inverse_=transform_utm2nav_.inverse();
 
   // Publish Nav/Base Odometry in UTM frame - note frames are set in ::run()
@@ -381,7 +386,7 @@ void GeonavTransform::navOdomCallback(const sensor_msgs::NavSatFixConstPtr& msg)
   tf2::toMsg(transform_odom2base_, nav_in_odom_.pose.pose);
   nav_in_odom_.pose.pose.position.z = (zero_altitude_ ? 0.0 : nav_in_odom_.pose.pose.position.z);
   // Orientation and twist are uneffected
-  nav_in_odom_.pose.pose.orientation = imu_.orientation;
+  nav_in_odom_.pose.pose.orientation = base_link_quaternion;
   // nav_in_odom_.pose.covariance = imu_.orientation_covariance;
   // nav_in_odom_.twist.twist.linear = msg->twist.twist.linear;
   // nav_in_odom_.twist.twist.angular = msg->twist.twist.angular;
@@ -431,6 +436,7 @@ void GeonavTransform::imuCallback(const sensor_msgs::ImuConstPtr& msg)
 {
   imu_.header = msg->header;
   imu_.orientation = msg->orientation;
+  
   imu_.orientation_covariance = msg->orientation_covariance;
 }
 
