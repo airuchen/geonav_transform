@@ -218,6 +218,8 @@ void GeonavTransform::run()
 					  this);
 
   ros::Subscriber imu_sub = nh.subscribe("imu/data", 10, &GeonavTransform::imuCallback, this);
+
+  request_gps_srv_ = nh.advertiseService("gps_to_map_xy", &GeonavTransform::cb_request_gps_srv, this);
   
   
   // Loop
@@ -439,6 +441,33 @@ void GeonavTransform::imuCallback(const sensor_msgs::ImuConstPtr& msg)
   
   imu_.orientation_covariance = msg->orientation_covariance;
 }
+
+bool GeonavTransform::cb_request_gps_srv(geonav_transform::RequestGPS::Request &req, geonav_transform::RequestGPS::Response &res) {
+
+  double utmX = 0;
+  double utmY = 0;
+  std::string utm_zone_tmp;
+  NavsatConversions::LLtoUTM(req.latitude, req.longitude, utmY, utmX, utm_zone_tmp); // transform lla to utm coordinate
+  ROS_WARN("lat: %f, lon:%f ----> (X: %f, Y: %f) in utm", req.latitude, req.longitude, utmX, utmY);
+
+  tf2::Transform transform_utm2goal;
+  tf2::Transform transform_utm2goal_inverse;
+  tf2::Transform transform_odom2goal;
+  tf2::Transform transform_odom2goal_inverse;
+  nav_msgs::Odometry goal_in_odom;
+
+  // transform from utm coordinate to map(odom) coordinate
+  transform_utm2goal.setOrigin(tf2::Vector3(utmX, utmY, 0));
+  transform_utm2goal_inverse=transform_utm2goal.inverse();
+  transform_odom2goal.mult(transform_utm2odom_inverse_,transform_utm2goal);
+
+  goal_in_odom.header.stamp = ros::Time::now();
+  // Position from transform
+  tf2::toMsg(transform_odom2goal, goal_in_odom.pose.pose);
+  res.x = goal_in_odom.pose.pose.position.x;
+  res.y = goal_in_odom.pose.pose.position.y;
+  ROS_WARN("(X: %f, Y: %f) in map_gps", res.x, res.y);
+} //cb_request_gps_srv
 
 } // namespace GeonavTransform
 

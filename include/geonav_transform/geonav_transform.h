@@ -35,6 +35,9 @@ along with Foobar.  If not, see <http://www.gnu.org/licenses/>.
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
 
+// service
+#include <geonav_transform/RequestGPS.h>
+
 #include <Eigen/Dense>
 
 #include <string>
@@ -98,6 +101,9 @@ class GeonavTransform
     //!
     void imuCallback(const sensor_msgs::ImuConstPtr& msg);
 
+    //! @brief service server for gps request
+    bool cb_request_gps_srv(geonav_transform::RequestGPS::Request &req, geonav_transform::RequestGPS::Response &res);
+
     //! @brief Sends transform
     void broadcastTf(void);
 
@@ -140,7 +146,7 @@ class GeonavTransform
     tf2::Transform transform_utm2nav_;
     tf2::Transform transform_utm2nav_inverse_;
 
-  tf2::Transform transform_odom2nav_;
+    tf2::Transform transform_odom2nav_;
     tf2::Transform transform_odom2nav_inverse_;
 
     //! @brief Transform buffer for managing coordinate transforms
@@ -198,6 +204,7 @@ class GeonavTransform
     //! @brief Publisher of Geo Odometry relative to geo frame
     ros::Publisher geo_pub_;
 
+    ros::ServiceServer request_gps_srv_;
 
 };
 

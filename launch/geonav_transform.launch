@@ -14,9 +14,11 @@
     <!--set to the original lla as melaten map origin-->
     <!-- <rosparam param="datum">[50.7871051, 6.046473, 265.117]</rosparam> --> <!--ika-->
     <rosparam param="datum">[50.780713, 6.1044378, 195.475]</rosparam> <!--ifu-->
+    <rosparam param="datum">[50.780578, 6.104401, 0]</rosparam> <!--ifu-->
   </node>
 
-  <node pkg="tf" type="static_transform_publisher" name="map_2_map_gps" args="0 -9 0 -2.223034 0 0 map map_gps 10" />
+  <!-- <node pkg="tf" type="static_transform_publisher" name="map_2_map_gps" args="0 -4 0 -2.223034 0 0 map map_gps 10" /> -->
+  <node pkg="tf" type="static_transform_publisher" name="map_2_map_gps" args="0 0 0 0 0 0 map map_gps 10" />
 
   <!-- offset for wrong lla -->
   <!-- 
