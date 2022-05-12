@@ -24,6 +24,8 @@
   <depend>tf2</depend>
   <depend>tf2_geometry_msgs</depend>
   <depend>tf2_ros</depend>
+  <depend>tf</depend>
+  <depend>navgraph</depend>
 
   <build_depend>robot_localization</build_depend>
   <build_depend>message_generation</build_depend>
