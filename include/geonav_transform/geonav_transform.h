@@ -101,7 +101,7 @@ class GeonavTransform
     //!
     void imuCallback(const sensor_msgs::ImuConstPtr& msg);
 
-    //! @brief service server for gps request
+    //! @brief Callback for gps request service
     bool cb_request_gps_srv(geonav_transform::RequestGPS::Request &req, geonav_transform::RequestGPS::Response &res);
 
     //! @brief Sends transform

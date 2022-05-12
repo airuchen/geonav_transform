@@ -302,7 +302,7 @@ void GeonavTransform::navOdomCallback(const sensor_msgs::NavSatFixConstPtr& msg)
   // are making due with an Odometry message
   bool good_gps = (!std::isnan(msg->latitude) &&
 		   !std::isnan(msg->longitude) &&
-		   !std::isnan(msg->altitude));
+		   (zero_altitude_ | !std::isnan(msg->altitude)));
   if (!good_gps)
   {
     ROS_WARN_STREAM("Bad GPS!  Won't transfrom");
@@ -466,6 +466,7 @@ bool GeonavTransform::cb_request_gps_srv(geonav_transform::RequestGPS::Request &
   tf2::toMsg(transform_odom2goal, goal_in_odom.pose.pose);
   res.x = goal_in_odom.pose.pose.position.x;
   res.y = goal_in_odom.pose.pose.position.y;
+  res.frame_id = "map_gps";
   ROS_WARN("(X: %f, Y: %f) in map_gps", res.x, res.y);
 } //cb_request_gps_srv
 
